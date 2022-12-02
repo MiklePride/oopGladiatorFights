@@ -12,7 +12,7 @@ namespace oopGladiatorFights
         {
             Arena arena = new Arena();
 
-            arena.Start();
+            arena.ToStart();
         }
     }
 }
@@ -30,12 +30,12 @@ class Arena
         new Assassin()
     };
 
-    public void Start()
+    public void ToStart()
     {
         Console.WriteLine("Добро пожаловать на арену!");
 
         ChooseFighters();
-        _fight.Start();
+        _fight.ToStart();
 
         Console.ReadLine();
     }
@@ -49,9 +49,9 @@ class Arena
 
         foreach(var fighter in _fighters)
         {
-            numberFighter++;
             Console.WriteLine($"Боец под номером ({numberFighter})");
             fighter.ShowInfo();
+            numberFighter++;
         }
 
         Console.Write("Выберите номер бойца слева: ");
@@ -67,43 +67,39 @@ class Arena
 
     private Fighter GetFighter()
     {
-        Fighter fighter = null;
-
         bool isWork = true;
+        int userInput = 0;
 
         while (isWork)
         {
-            string userInput = Console.ReadLine();
-
-            switch (userInput)
+            userInput = UserUtils.GetNumber();
+            
+            if(userInput < 0 || userInput > _fighters.Length - 1)
             {
-                case "1":
-                    fighter = new Barbarian();
-                    isWork = false;
-                    break;
-                case "2":
-                    fighter = new Knight();
-                    isWork = false;
-                    break;
-                case "3":
-                    fighter = new Glutton();
-                    isWork = false;
-                    break;
-                case "4":
-                    fighter = new Warrior();
-                    isWork = false;
-                    break;
-                case "5":
-                    fighter = new Assassin();
-                    isWork = false;
-                    break;
-                default:
-                    Console.WriteLine("Некорректный ввод данных");
-                    break;
+                Console.WriteLine("Бойца под таким номером нет. Повторите ввод...");
+            }
+            else
+            {
+                isWork= false;
             }
         }
 
-        return fighter;
+        switch (_fighters[userInput])
+        {
+            case Barbarian barbarian:
+                return new Barbarian();
+            case Knight knight:
+                return new Knight();
+            case Glutton glutton:
+                return new Glutton();
+            case Warrior warrior:
+                return new Warrior();
+            case Assassin assassin:
+                return new Assassin();
+            default:
+                Console.WriteLine("Некорректный ввод данных");
+                return null;
+        }
     }
 }
 
@@ -118,13 +114,9 @@ class Fight
         _fighterRight = fighterRight;
     }
 
-    public void Start()
+    public void ToStart()
     {
-        Console.WriteLine($"Боец слева:");
-        _fighterLeft.ShowInfo();
-
-        Console.WriteLine($"Боец справа:");
-        _fighterRight.ShowInfo();
+        AnnounceFighters();
 
         while(_fighterLeft.IsAlive && _fighterRight.IsAlive)
         {
@@ -140,9 +132,14 @@ class Fight
             Console.WriteLine($"{_fighterRight.Name} ходит...");
 
             _fighterRight.Attack(_fighterLeft);
-            _fighterRight.TryToActivateAbility( _fighterRight);
+            _fighterRight.TryToActivateAbility(_fighterRight);
         }
 
+        ShowWinner();
+    }
+
+    private void ShowWinner()
+    {
         if (_fighterLeft.IsAlive)
         {
             Console.WriteLine($"Победил боец слева: {_fighterLeft.Name}.");
@@ -151,6 +148,15 @@ class Fight
         {
             Console.WriteLine($"Победил боец справа: {_fighterRight.Name}.");
         }
+    }
+
+    private void AnnounceFighters()
+    {
+        Console.WriteLine($"Боец слева:");
+        _fighterLeft.ShowInfo();
+
+        Console.WriteLine($"Боец справа:");
+        _fighterRight.ShowInfo();
     }
 }
 
@@ -205,12 +211,12 @@ abstract class Fighter
         Ability.OnTurn(fighter);
     }
 
-    public void ChangeMaxHealth(int maxHealth)
+    public void SetMaxHealth(int maxHealth)
     {
         MaxHealth = maxHealth;
     }
 
-    public void ChangeHealth(int health)
+    public void AddHealth(int health)
     {
         Health += health;
 
@@ -218,12 +224,12 @@ abstract class Fighter
             Health = MaxHealth;
     }
 
-    public void ChangeDamage(int damage)
+    public void SetDamage(int damage)
     {
         Damage = damage;
     }
 
-    public void ChangeArmor(int armor)
+    public void SetArmor(int armor)
     {
         Armor = armor;
     }
@@ -328,7 +334,7 @@ abstract class Ability
     public virtual void OnTurn(Fighter fighter)
     {
         if (ShouldTrigger(fighter))
-            Trigger(fighter);
+            OnTrigger(fighter);
     }
 
     public abstract void ShowInfo();
@@ -348,7 +354,7 @@ abstract class Ability
         return resultNumber <= ChanceOfTriggering;
     }
 
-    protected abstract void Trigger(Fighter fighter);
+    protected abstract void OnTrigger(Fighter fighter);
 }
 
 class Healing : Ability
@@ -367,11 +373,11 @@ class Healing : Ability
         Console.WriteLine($"{Name}: c вероятностью в {ChanceOfTriggering}% восстановит от {_minimumHealingPoint} до {_maximumHealingPoint} единиц здоровья.");
     }
 
-    protected override void Trigger(Fighter fighter)
+    protected override void OnTrigger(Fighter fighter)
     {
         int totalHealingPoint = Random.Next(_minimumHealingPoint, _maximumHealingPoint);
 
-        fighter.ChangeHealth(totalHealingPoint);
+        fighter.AddHealth(totalHealingPoint);
 
         Console.WriteLine($"{fighter.Name} применяет {Name} и восстанавливает себе {totalHealingPoint} здоровья.");
     }
@@ -410,11 +416,11 @@ class StoneSkin : Ability
         Console.WriteLine($"{Name}: с вероятностью {ChanceOfTriggering}% увеличит броню на {_armorBoost} единиц, на {_amountOfMoves} хода.");
     }
 
-    protected override void Trigger(Fighter fighter)
+    protected override void OnTrigger(Fighter fighter)
     {
         int totalArmor = fighter.Armor + _armorBoost;
 
-        fighter.ChangeArmor(totalArmor);
+        fighter.SetArmor(totalArmor);
 
         Console.WriteLine($"{fighter.Name} применяет {Name}, броня увеличена на {_armorBoost} единиц.");
     }
@@ -424,7 +430,7 @@ class StoneSkin : Ability
         _isActive = false;
         _moveCounter = 0;
 
-        fighter.ChangeArmor(fighter.BaseArmor);
+        fighter.SetArmor(fighter.BaseArmor);
 
         Console.WriteLine($"{Name} иссякла. Уровень брони вернулся в норму.");
     }
@@ -459,15 +465,15 @@ class FatMan : Ability
         return fighter.Health <= _thresholdHealthForTriggering && _isActive == false;
     }
 
-    protected override void Trigger(Fighter fighter)
+    protected override void OnTrigger(Fighter fighter)
     {
         int totalDamage = fighter.Damage - _reducedDamage;
         int totalArmor = fighter.Armor - _reducedArmor;
 
-        fighter.ChangeMaxHealth(_boostMaxHealth);
-        fighter.ChangeHealth(_healingHealth);
-        fighter.ChangeDamage(totalDamage);
-        fighter.ChangeArmor(totalArmor);
+        fighter.SetMaxHealth(_boostMaxHealth);
+        fighter.AddHealth(_healingHealth);
+        fighter.SetDamage(totalDamage);
+        fighter.SetArmor(totalArmor);
 
         _isActive = true;
 
@@ -497,13 +503,13 @@ class Berserk : Ability
         return fighter.Health <= _thresholdHealthForTriggering;
     }
 
-    protected override void Trigger(Fighter fighter)
+    protected override void OnTrigger(Fighter fighter)
     {
         int totalArmor = _armorBoost + fighter.Armor;
         int totalDamage = _damageBoost + fighter.Damage;
 
-        fighter.ChangeArmor(totalArmor);
-        fighter.ChangeDamage(totalDamage);
+        fighter.SetArmor(totalArmor);
+        fighter.SetDamage(totalDamage);
 
         Console.WriteLine($"{fighter.Name} применяет способность {Name}. Урон +{_damageBoost}. Броня +{_armorBoost}");
     }
@@ -537,11 +543,11 @@ class DoubleDamage : Ability
         Console.WriteLine($"{Name}: c вероятностью {ChanceOfTriggering}% следующий удар нанесет критический урон (х{_damageMultiplier})");
     }
 
-    protected override void Trigger(Fighter fighter)
+    protected override void OnTrigger(Fighter fighter)
     {
         int totalDamage = fighter.Damage * _damageMultiplier;
 
-        fighter.ChangeDamage(totalDamage);
+        fighter.SetDamage(totalDamage);
 
         Console.WriteLine("Следующий удар нанесет двойной урон.");
 
@@ -552,6 +558,33 @@ class DoubleDamage : Ability
     {
         _isActive = false;
 
-        fighter.ChangeDamage(fighter.BaseDamage);
+        fighter.SetDamage(fighter.BaseDamage);
+    }
+}
+
+static class UserUtils
+{
+    public static int GetNumber()
+    {
+        bool isNumberWork = true;
+        int userNumber = 0;
+
+        while (isNumberWork)
+        {
+            bool isNumber = true;
+            string userInput = Console.ReadLine();
+
+            if (isNumber = int.TryParse(userInput, out int number))
+            {
+                userNumber = number;
+                isNumberWork = false;
+            }
+            else
+            {
+                Console.WriteLine($"Не правильный ввод данных!!!  Повторите попытку");
+            }
+        }
+
+        return userNumber;
     }
 }
