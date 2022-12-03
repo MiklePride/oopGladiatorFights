@@ -12,7 +12,7 @@ namespace oopGladiatorFights
         {
             Arena arena = new Arena();
 
-            arena.ToStart();
+            arena.Start();
         }
     }
 }
@@ -30,12 +30,12 @@ class Arena
         new Assassin()
     };
 
-    public void ToStart()
+    public void Start()
     {
         Console.WriteLine("Добро пожаловать на арену!");
 
         ChooseFighters();
-        _fight.ToStart();
+        _fight.Start();
 
         Console.ReadLine();
     }
@@ -86,15 +86,15 @@ class Arena
 
         switch (_fighters[userInput])
         {
-            case Barbarian barbarian:
+            case Barbarian _:
                 return new Barbarian();
-            case Knight knight:
+            case Knight _:
                 return new Knight();
-            case Glutton glutton:
+            case Glutton _:
                 return new Glutton();
-            case Warrior warrior:
+            case Warrior _:
                 return new Warrior();
-            case Assassin assassin:
+            case Assassin _:
                 return new Assassin();
             default:
                 Console.WriteLine("Некорректный ввод данных");
@@ -114,7 +114,7 @@ class Fight
         _fighterRight = fighterRight;
     }
 
-    public void ToStart()
+    public void Start()
     {
         AnnounceFighters();
 
@@ -208,7 +208,7 @@ abstract class Fighter
 
     public void TryToActivateAbility(Fighter fighter)
     {
-        Ability.OnTurn(fighter);
+        Ability.TryActivate(fighter);
     }
 
     public void SetMaxHealth(int maxHealth)
@@ -331,10 +331,10 @@ abstract class Ability
 
     public string Name { get; protected set; }
 
-    public virtual void OnTurn(Fighter fighter)
+    public virtual void TryActivate(Fighter fighter)
     {
         if (ShouldTrigger(fighter))
-            OnTrigger(fighter);
+            Enable(fighter);
     }
 
     public abstract void ShowInfo();
@@ -354,7 +354,7 @@ abstract class Ability
         return resultNumber <= ChanceOfTriggering;
     }
 
-    protected abstract void OnTrigger(Fighter fighter);
+    protected abstract void Enable(Fighter fighter);
 }
 
 class Healing : Ability
@@ -373,7 +373,7 @@ class Healing : Ability
         Console.WriteLine($"{Name}: c вероятностью в {ChanceOfTriggering}% восстановит от {_minimumHealingPoint} до {_maximumHealingPoint} единиц здоровья.");
     }
 
-    protected override void OnTrigger(Fighter fighter)
+    protected override void Enable(Fighter fighter)
     {
         int totalHealingPoint = Random.Next(_minimumHealingPoint, _maximumHealingPoint);
 
@@ -396,10 +396,10 @@ class StoneSkin : Ability
         ChanceOfTriggering = 15;
     }
 
-    public override void OnTurn(Fighter fighter)
+    public override void TryActivate(Fighter fighter)
     {
         if (_moveCounter == _amountOfMoves)
-            OffTrigger(fighter);
+            Disabled(fighter);
 
         if (_isActive)
         {
@@ -407,7 +407,7 @@ class StoneSkin : Ability
         }
         else
         {
-            base.OnTurn(fighter);
+            base.TryActivate(fighter);
         }
     }
 
@@ -416,7 +416,7 @@ class StoneSkin : Ability
         Console.WriteLine($"{Name}: с вероятностью {ChanceOfTriggering}% увеличит броню на {_armorBoost} единиц, на {_amountOfMoves} хода.");
     }
 
-    protected override void OnTrigger(Fighter fighter)
+    protected override void Enable(Fighter fighter)
     {
         int totalArmor = fighter.Armor + _armorBoost;
 
@@ -425,7 +425,7 @@ class StoneSkin : Ability
         Console.WriteLine($"{fighter.Name} применяет {Name}, броня увеличена на {_armorBoost} единиц.");
     }
 
-    private void OffTrigger(Fighter fighter)
+    private void Disabled(Fighter fighter)
     {
         _isActive = false;
         _moveCounter = 0;
@@ -465,7 +465,7 @@ class FatMan : Ability
         return fighter.Health <= _thresholdHealthForTriggering && _isActive == false;
     }
 
-    protected override void OnTrigger(Fighter fighter)
+    protected override void Enable(Fighter fighter)
     {
         int totalDamage = fighter.Damage - _reducedDamage;
         int totalArmor = fighter.Armor - _reducedArmor;
@@ -503,7 +503,7 @@ class Berserk : Ability
         return fighter.Health <= _thresholdHealthForTriggering;
     }
 
-    protected override void OnTrigger(Fighter fighter)
+    protected override void Enable(Fighter fighter)
     {
         int totalArmor = _armorBoost + fighter.Armor;
         int totalDamage = _damageBoost + fighter.Damage;
@@ -526,15 +526,15 @@ class DoubleDamage : Ability
         ChanceOfTriggering = 25;
     }
 
-    public override void OnTurn(Fighter fighter)
+    public override void TryActivate(Fighter fighter)
     {
         if (_isActive)
         {
-            OffTrigger(fighter);
+            Disabled(fighter);
         }
         else
         {
-            base.OnTurn(fighter);
+            base.TryActivate(fighter);
         }
     }
 
@@ -543,7 +543,7 @@ class DoubleDamage : Ability
         Console.WriteLine($"{Name}: c вероятностью {ChanceOfTriggering}% следующий удар нанесет критический урон (х{_damageMultiplier})");
     }
 
-    protected override void OnTrigger(Fighter fighter)
+    protected override void Enable(Fighter fighter)
     {
         int totalDamage = fighter.Damage * _damageMultiplier;
 
@@ -554,7 +554,7 @@ class DoubleDamage : Ability
         _isActive = true;
     }
 
-    private void OffTrigger(Fighter fighter)
+    private void Disabled(Fighter fighter)
     {
         _isActive = false;
 
