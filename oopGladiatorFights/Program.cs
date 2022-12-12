@@ -20,15 +20,16 @@ namespace oopGladiatorFights
 class Arena
 {
     private Fight _fight;
+    private Fighter[] _fighters = new Fighter[5];
 
-    private Fighter[] _fighters =
+    public Arena()
     {
-        new Barbarian(),
-        new Knight(),
-        new Glutton(),
-        new Warrior(),
-        new Assassin()
-    };
+        _fighters[0] = new Barbarian();
+        _fighters[1] = new Knight();
+        _fighters[2] = new Thief();
+        _fighters[3] = new Warrior();
+        _fighters[4] = new Assassin();
+    }
 
     public void Start()
     {
@@ -47,7 +48,7 @@ class Arena
 
         int numberFighter = 0;
 
-        foreach(var fighter in _fighters)
+        foreach (var fighter in _fighters)
         {
             Console.WriteLine($"Боец под номером ({numberFighter})");
             fighter.ShowInfo();
@@ -73,14 +74,14 @@ class Arena
         while (isWork)
         {
             userInput = UserUtils.GetNumber();
-            
-            if(userInput < 0 || userInput > _fighters.Length - 1)
+
+            if (userInput < 0 || userInput > _fighters.Length - 1)
             {
                 Console.WriteLine("Бойца под таким номером нет. Повторите ввод...");
             }
             else
             {
-                isWork= false;
+                isWork = false;
             }
         }
 
@@ -90,8 +91,8 @@ class Arena
                 return new Barbarian();
             case Knight _:
                 return new Knight();
-            case Glutton _:
-                return new Glutton();
+            case Thief _:
+                return new Thief();
             case Warrior _:
                 return new Warrior();
             case Assassin _:
@@ -118,7 +119,7 @@ class Fight
     {
         AnnounceFighters();
 
-        while(_fighterLeft.IsAlive && _fighterRight.IsAlive)
+        while (_fighterLeft.IsAlive && _fighterRight.IsAlive)
         {
             Console.WriteLine($"{_fighterLeft.Name} ходит...");
 
@@ -127,12 +128,9 @@ class Fight
             if (_fighterRight.IsAlive == false)
                 continue;
 
-            _fighterLeft.TryToActivateAbility(_fighterLeft);
-
             Console.WriteLine($"{_fighterRight.Name} ходит...");
 
             _fighterRight.Attack(_fighterLeft);
-            _fighterRight.TryToActivateAbility(_fighterRight);
         }
 
         ShowWinner();
@@ -162,7 +160,13 @@ class Fight
 
 abstract class Fighter
 {
-    protected Ability Ability;
+    protected Random PercentChance = new Random();
+    protected int MinimumChance = 0;
+    protected int MaximumChance = 100;
+
+    protected string Ability;
+    protected int ChanceOfTrigger;
+    protected bool AbilityIsActive;
 
     public string Name { get; protected set; }
 
@@ -176,14 +180,14 @@ abstract class Fighter
     public int Health { get; protected set; }
     public bool IsAlive { get; protected set; }
 
-    public void Attack(Fighter fighter)
+    public virtual void Attack(Fighter fighter)
     {
         Console.WriteLine($"{Name}: Атакую!");
 
         fighter.TakeDamage(Damage);
     }
 
-    public void TakeDamage(int damage)
+    public virtual void TakeDamage(int damage)
     {
         int currentDamage;
 
@@ -206,105 +210,287 @@ abstract class Fighter
         }
     }
 
-    public void TryToActivateAbility(Fighter fighter)
+    public void ShowInfo()
     {
-        Ability.TryActivate(fighter);
+        Console.WriteLine($"||Класс бойца: {Name} | Запас здоровья: {MaxHealth} | Броня: {Armor} | Урон: {Damage} | Способность: {Ability}||");
+        Console.WriteLine("_______________________________________");
     }
 
-    public void SetMaxHealth(int maxHealth)
-    {
-        MaxHealth = maxHealth;
-    }
+    protected abstract void ShowAbilityDescription();
 
-    public void AddHealth(int health)
+    protected abstract void TryEnableAbility();
+
+    protected abstract void DisableAbility();
+
+    protected void IncreaseHealth(int health)
     {
         Health += health;
 
-        if (Health > 0)
+        if (Health > MaxHealth)
             Health = MaxHealth;
     }
 
-    public void SetDamage(int damage)
+    protected void IncreaseDamage(int damage)
     {
-        Damage = damage;
+        Damage += damage;
     }
 
-    public void SetArmor(int armor)
+    protected void IncreaseArmor(int armor)
     {
-        Armor = armor;
+        Armor += armor;
     }
 
-    public void ShowInfo()
+    protected bool WillThereBeChance()
     {
-        Console.WriteLine($"||Класс бойца: {Name} | Запас здоровья: {MaxHealth} | Броня: {Armor} | Урон: {Damage} | Способность: {Ability.Name}||");
-        Ability.ShowInfo();
-        Console.WriteLine("_______________________________________");
+        int randomChance = PercentChance.Next(MinimumChance, MaximumChance);
+
+        return randomChance >= ChanceOfTrigger;
     }
 }
 
 class Barbarian : Fighter
 {
+    private int _armorBoost = 10;
+    private int _numberOfMoves = 5;
+    private int _movesCount = 0;
 
     public Barbarian()
     {
-        Ability = new StoneSkin();
+        Ability = "Каменная кожа";
         Name = "Варвар";
+        ChanceOfTrigger = 15;
+
         MaxHealth = 150;
         Health = MaxHealth;
+
         BaseArmor = 3;
         Armor = BaseArmor;
+
         BaseDamage = 33;
         Damage = BaseDamage;
+
         IsAlive = true;
+        AbilityIsActive = false;
+    }
+
+    public override void Attack(Fighter fighter)
+    {
+        base.Attack(fighter);
+
+        if (_movesCount == _numberOfMoves)
+            DisableAbility();
+
+        if (AbilityIsActive)
+            _movesCount++;
+
+        if (AbilityIsActive == false)
+            TryEnableAbility();
+    }
+
+    protected override void TryEnableAbility()
+    {
+        if(WillThereBeChance())
+        {
+            AbilityIsActive = true;
+
+            IncreaseArmor(_armorBoost);
+
+            Console.WriteLine($"{Name}: Способность '{Ability}' активирована!" +
+                $" Броня увеличена на {_armorBoost} на {_numberOfMoves} ходов.");
+        }
+    }
+
+    protected override void DisableAbility()
+    {
+        AbilityIsActive = false;
+        _movesCount = 0;
+        Armor = BaseArmor;
+
+        Console.WriteLine($"{Name}: Действие способности закончилось.");
+    }
+
+    protected override void ShowAbilityDescription()
+    {
+        Console.WriteLine($"{Ability}: С вероятностью {ChanceOfTrigger}%, увеличит броню на {_armorBoost}ед., на {_numberOfMoves} ходов");
     }
 }
 
 class Knight : Fighter
 {
+    private int _healingPoint = 20;
+
     public Knight()
     {
-        Ability = new Healing();
+        Ability = "Исцеление";
         Name = "Рыцарь";
+        ChanceOfTrigger = 10;
+
         MaxHealth = 250;
         Health = MaxHealth;
+
         BaseArmor = 10;
         Armor = BaseArmor;
+
         BaseDamage = 10;
         Damage = BaseDamage;
+
         IsAlive = true;
+        AbilityIsActive = false;
+    }
+
+    public override void Attack(Fighter fighter)
+    {
+        base.Attack(fighter);
+
+        TryEnableAbility();
+    }
+
+    protected override void DisableAbility()
+    {
+        AbilityIsActive = false;
+    }
+
+    protected override void TryEnableAbility()
+    {
+        if (WillThereBeChance())
+        {
+            AbilityIsActive = true;
+
+            IncreaseHealth(_healingPoint);
+
+            DisableAbility();
+
+            Console.WriteLine($"{Name}: Способность {Ability} активирована! +{_healingPoint}хр.");
+        }
+    }
+
+    protected override void ShowAbilityDescription()
+    {
+        Console.WriteLine($"{Ability}: С вероятностью {ChanceOfTrigger}% востановит {_healingPoint}ед. здоровья.");
     }
 }
 
-class Glutton : Fighter
+class Thief : Fighter
 {
 
-    public Glutton()
+    public Thief()
     {
-        Ability = new FatMan();
-        Name = "Обжора";
+        Ability = "Уклонение";
+        Name = "Вор";
+        ChanceOfTrigger = 30;
+
         MaxHealth = 150;
         Health = MaxHealth;
-        BaseArmor = 4;
+
+        BaseArmor = 2;
         Armor = BaseArmor;
+
         BaseDamage = 30;
         Damage = BaseDamage;
+
         IsAlive = true;
+        AbilityIsActive = false;
+    }
+
+    public override void TakeDamage(int damage)
+    {
+        if (AbilityIsActive)
+        {
+            Console.WriteLine($"{Name}: Уклонение.");
+
+            DisableAbility();
+        }
+        else
+        {
+            base.TakeDamage(damage);
+        }
+    }
+
+    protected override void DisableAbility()
+    {
+        AbilityIsActive = false;
+    }
+
+    protected override void TryEnableAbility()
+    {
+        if (WillThereBeChance())
+            AbilityIsActive = true;
+    }
+
+    protected override void ShowAbilityDescription()
+    {
+        Console.WriteLine($"{Ability}: С вероятностью {ChanceOfTrigger}% позволяет уклониться от атаки.");
     }
 }
 
 class Warrior : Fighter
 {
+    private int _damageBoost = 20;
+    private int _armorBoost = 15;
+    private int _numberOfMoves = 10;
+    private int _movesCount = 0;
+
     public Warrior()
     {
-        Ability = new Berserk();
+        Ability = "Берсеркер";
         Name = "Воин";
+        ChanceOfTrigger = 5;
+
         MaxHealth = 200;
         Health = MaxHealth;
+
         BaseArmor = 8;
         Armor = BaseArmor;
+
         BaseDamage = 25;
         Damage = BaseDamage;
+
         IsAlive = true;
+        AbilityIsActive = false;
+    }
+
+    public override void Attack(Fighter fighter)
+    {
+        base.Attack(fighter);
+
+        if (_movesCount == _numberOfMoves)
+            DisableAbility();
+
+        if (AbilityIsActive)
+            _movesCount++;
+
+        if (AbilityIsActive == false)
+            TryEnableAbility();
+    }
+
+    protected override void DisableAbility()
+    {
+        AbilityIsActive = false;
+        Armor = BaseArmor;
+        Damage = BaseDamage;
+        _movesCount = 0;
+
+        Console.WriteLine($"{Name}: Действие способности закончилось.");
+    }
+
+    protected override void TryEnableAbility()
+    {
+        if (WillThereBeChance())
+        {
+            AbilityIsActive = true;
+
+            IncreaseArmor(_armorBoost);
+            IncreaseDamage(_damageBoost);
+
+            Console.WriteLine($"{Name}: {Ability} активирован!" +
+                $"Броня увеличена на {_armorBoost}, урон увеличен на {_damageBoost}, на {_numberOfMoves} ходов.");
+        }
+    }
+
+    protected override void ShowAbilityDescription()
+    {
+        Console.WriteLine($"{Ability}: C Вероятностью {ChanceOfTrigger}%," +
+            $" увеличит урон на {_damageBoost} и броню на {_armorBoost}, на {_numberOfMoves} ходов.");
     }
 }
 
@@ -312,253 +498,49 @@ class Assassin : Fighter
 {
     public Assassin()
     {
-        Ability = new DoubleDamage();
+        Ability = "Двойной удар";
         Name = "Убийца";
+        ChanceOfTrigger = 25;
+
         MaxHealth = 130;
         Health = MaxHealth;
-        BaseArmor = 7;
+        BaseArmor = 2;
         Armor = BaseArmor;
-        BaseDamage = 35;
+        BaseDamage = 25;
         Damage = BaseDamage;
         IsAlive = true;
     }
-}
 
-abstract class Ability
-{
-    protected int ChanceOfTriggering;
-    protected Random Random = new Random();
-
-    public string Name { get; protected set; }
-
-    public virtual void TryActivate(Fighter fighter)
+    public override void Attack(Fighter fighter)
     {
-        if (ShouldTrigger(fighter))
-            Enable(fighter);
-    }
+        TryEnableAbility();
 
-    public abstract void ShowInfo();
-
-    protected int GetRandomNumber()
-    {
-        int minimumRandomNumber = 0;
-        int maximumRandomNumber = 100;
-
-        return Random.Next(minimumRandomNumber, maximumRandomNumber);
-    }
-
-    protected virtual bool ShouldTrigger(Fighter fighter)
-    {
-        int resultNumber = GetRandomNumber();
-
-        return resultNumber <= ChanceOfTriggering;
-    }
-
-    protected abstract void Enable(Fighter fighter);
-}
-
-class Healing : Ability
-{
-    private int _minimumHealingPoint = 15;
-    private int _maximumHealingPoint = 26;
-
-    public Healing()
-    {
-        Name = "Исцеление";
-        ChanceOfTriggering = 10;
-    }
-
-    public override void ShowInfo()
-    {
-        Console.WriteLine($"{Name}: c вероятностью в {ChanceOfTriggering}% восстановит от {_minimumHealingPoint} до {_maximumHealingPoint} единиц здоровья.");
-    }
-
-    protected override void Enable(Fighter fighter)
-    {
-        int totalHealingPoint = Random.Next(_minimumHealingPoint, _maximumHealingPoint);
-
-        fighter.AddHealth(totalHealingPoint);
-
-        Console.WriteLine($"{fighter.Name} применяет {Name} и восстанавливает себе {totalHealingPoint} здоровья.");
-    }
-}
-
-class StoneSkin : Ability
-{
-    private int _armorBoost = 10;
-    private int _amountOfMoves = 3;
-    private int _moveCounter = 0;
-    private bool _isActive = false;
-
-    public StoneSkin()
-    {
-        Name = "Каменная кожа";
-        ChanceOfTriggering = 15;
-    }
-
-    public override void TryActivate(Fighter fighter)
-    {
-        if (_moveCounter == _amountOfMoves)
-            Disabled(fighter);
-
-        if (_isActive)
+        if (AbilityIsActive)
         {
-            _moveCounter++;
+            base.Attack(fighter);
+            base.Attack(fighter);
         }
         else
         {
-            base.TryActivate(fighter);
+            base.Attack(fighter);
         }
     }
 
-    public override void ShowInfo()
+    protected override void DisableAbility()
     {
-        Console.WriteLine($"{Name}: с вероятностью {ChanceOfTriggering}% увеличит броню на {_armorBoost} единиц, на {_amountOfMoves} хода.");
+        AbilityIsActive = false;
     }
 
-    protected override void Enable(Fighter fighter)
+    protected override void TryEnableAbility()
     {
-        int totalArmor = fighter.Armor + _armorBoost;
-
-        fighter.SetArmor(totalArmor);
-
-        Console.WriteLine($"{fighter.Name} применяет {Name}, броня увеличена на {_armorBoost} единиц.");
+        if (WillThereBeChance())
+            AbilityIsActive = true;
+        Console.WriteLine($"{Name}: Способность активирована!");
     }
 
-    private void Disabled(Fighter fighter)
+    protected override void ShowAbilityDescription()
     {
-        _isActive = false;
-        _moveCounter = 0;
-
-        fighter.SetArmor(fighter.BaseArmor);
-
-        Console.WriteLine($"{Name} иссякла. Уровень брони вернулся в норму.");
-    }
-}
-
-class FatMan : Ability
-{
-    private int _thresholdHealthForTriggering = 30;
-    private int _boostMaxHealth = 300;
-    private int _healingHealth;
-    private int _reducedDamage = 25;
-    private int _reducedArmor = 3;
-    private bool _isActive = false;
-
-    public FatMan()
-    {
-        Name = "Толстяк";
-        _healingHealth = _boostMaxHealth;
-    }
-
-    public override void ShowInfo()
-    {
-        Console.WriteLine($"{Name}: когда уровень жизней упадет до {_thresholdHealthForTriggering} очков," +
-            $" максимальное количество ХП возрастет до {_boostMaxHealth}\n" +
-            $" излечит {_healingHealth} очков жизней, но взамен снизит показатель урона на {_reducedDamage} единиц" +
-            $" и показатель брони на {_reducedArmor} единиц.\n" +
-            $"Срабатывает один раз за бой.");
-    }
-
-    protected override bool ShouldTrigger(Fighter fighter)
-    {
-        return fighter.Health <= _thresholdHealthForTriggering && _isActive == false;
-    }
-
-    protected override void Enable(Fighter fighter)
-    {
-        int totalDamage = fighter.Damage - _reducedDamage;
-        int totalArmor = fighter.Armor - _reducedArmor;
-
-        fighter.SetMaxHealth(_boostMaxHealth);
-        fighter.AddHealth(_healingHealth);
-        fighter.SetDamage(totalDamage);
-        fighter.SetArmor(totalArmor);
-
-        _isActive = true;
-
-        Console.WriteLine($"{fighter.Name} применяет способность {Name}");
-    }
-}
-
-class Berserk : Ability
-{
-    private int _armorBoost = 10;
-    private int _damageBoost = 10;
-    private int _thresholdHealthForTriggering = 50;
-
-    public Berserk()
-    {
-        Name = "Берсерк";
-    }
-
-    public override void ShowInfo()
-    {
-        Console.WriteLine($"{Name}: когда уровень ХП упадет до {_thresholdHealthForTriggering} единиц," +
-            $" увеличит показатели брони на {_armorBoost} и урон {_damageBoost} единиц.");
-    }
-
-    protected override bool ShouldTrigger(Fighter fighter)
-    {
-        return fighter.Health <= _thresholdHealthForTriggering;
-    }
-
-    protected override void Enable(Fighter fighter)
-    {
-        int totalArmor = _armorBoost + fighter.Armor;
-        int totalDamage = _damageBoost + fighter.Damage;
-
-        fighter.SetArmor(totalArmor);
-        fighter.SetDamage(totalDamage);
-
-        Console.WriteLine($"{fighter.Name} применяет способность {Name}. Урон +{_damageBoost}. Броня +{_armorBoost}");
-    }
-}
-
-class DoubleDamage : Ability
-{
-    private int _damageMultiplier = 2;
-    private bool _isActive = false;
-
-    public DoubleDamage()
-    {
-        Name = "Сильнейший удар";
-        ChanceOfTriggering = 25;
-    }
-
-    public override void TryActivate(Fighter fighter)
-    {
-        if (_isActive)
-        {
-            Disabled(fighter);
-        }
-        else
-        {
-            base.TryActivate(fighter);
-        }
-    }
-
-    public override void ShowInfo()
-    {
-        Console.WriteLine($"{Name}: c вероятностью {ChanceOfTriggering}% следующий удар нанесет критический урон (х{_damageMultiplier})");
-    }
-
-    protected override void Enable(Fighter fighter)
-    {
-        int totalDamage = fighter.Damage * _damageMultiplier;
-
-        fighter.SetDamage(totalDamage);
-
-        Console.WriteLine("Следующий удар нанесет двойной урон.");
-
-        _isActive = true;
-    }
-
-    private void Disabled(Fighter fighter)
-    {
-        _isActive = false;
-
-        fighter.SetDamage(fighter.BaseDamage);
+        Console.WriteLine($"{Ability}: С вероятностью {ChanceOfTrigger}% Нанесет два удара подряд.");
     }
 }
 
